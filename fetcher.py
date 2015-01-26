@@ -1,13 +1,4 @@
 import urllib2
-import socket
-hand_shake_str = '''GET / HTTP/1.1\r\n
-Host: server.example.com\r\n
-Upgrade: websocket\r\n
-Connection: Upgrade\r\n
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n
-Origin: http://example.com\r\n
-Sec-WebSocket-Protocol: chat, superchat\r\n
-Sec-WebSocket-Version: 13'''
 '''
 def foo(event):
 	print event.char
