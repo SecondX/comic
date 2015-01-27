@@ -35,12 +35,19 @@ class comicFetcher(object):
 		self.comic_code = re.search('/(\w+)\.html',url).groups()[0]
 		overview = urllib2.urlopen(url).read().decode('big5').encode('utf-8')
 		allbooks = re.findall('%s-(\d+)\.html.*?>([^<]+)'%self.comic_code,overview,re.S)
-		self.allbooks = [(x[0],x[1].strip()) if x[1] else (x[0],x[1]) for x in allbooks]
+		self.allbooks = [(int(x[0]),x[1].strip()) if x[1].strip() else (x[0],'New') for x in allbooks]
 		readpage = self.readpage_format%self.comic_code
 		source = urllib2.urlopen(readpage).read().decode('big5').encode('utf-8')
 		self.chs,self.cs = re.search("<script>var chs=(\d+);.*?cs='([^']+)'",source).groups()
-		print self.chs,len(self.cs)
-	def getimgcode(self,ch,page):
+		# for book in allbooks:
+
+	def overview(self):
+		return self.allbooks
+	def getpages(self,ch):
+		c = self.getc(ch)
+		self.page_count = self.ss(c,7,3)
+		return self.page_count
+	def getc(self,ch):
 		ch = str(ch)
 		cc = len(self.cs)
 		c = ''
@@ -51,8 +58,10 @@ class comicFetcher(object):
 				break
 		if not c:
 			c = self.ss(self.cs,cc-50,50)
-			ch = chs
-		self.page_count = self.ss(c,7,3)
+			ch = self.chs
+		return c
+	def getimgcode(self,ch,page):
+		c = self.getc(ch)
 		page_code = self.ss(c,self.mm(page)+10,3,50)+'.jpg'
 		return page_code
 	def ss(self,a,b,c,d=None):
@@ -63,4 +72,6 @@ class comicFetcher(object):
 		return r
 
 a = comicFetcher(url)
-print a.getimgcode(3,53)
+print a.getimgcode(3,21)
+print a.getpages(3)
+# print a.overview()
