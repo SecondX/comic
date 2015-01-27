@@ -15,6 +15,44 @@ panel = Label(root, image = img, bg='black')
 panel.pack(side = "bottom", fill = "both", expand = "yes")
 root.bind('<Key>',foo)
 root.mainloop()'''
+
+'''from Tkinter import *
+from PIL import Image, ImageTk
+import os
+
+def foo(e,cur,total,imgpath=None):
+	newframe = Toplevel()
+	newframe.title("display a website image")
+	newframe.geometry('1024x768')
+	pagescount = Label(newframe, text='%s / %s'%(cur,total))
+	image = Image.open(imgpath)
+	photo = ImageTk.PhotoImage(image)
+	theimg = Label(newframe,image=photo)
+	theimg.pack()
+	newframe.config(bg='black')
+	newframe.bind('<Key>',key)
+	pagescount.pack()
+	newframe.mainloop()
+	
+def key(e):
+	if e.keycode == 27:
+		exit()
+root = Tk()
+frame = Frame(root)
+root.bind('<Key>',key)
+frame.pack()
+a = [x for x in range(1,54)]
+for i in range(len(a)):
+	l = Label(frame,text='%4d'%a[i])
+	l.grid(row=i/8,column=(i%8)+1)
+	l.bind('<Button-1>',lambda e,cur=3,total=10:foo(e,cur,total))
+
+
+root.mainloop()
+
+'''
+
+
 url = 'http://www.8comic.com/105.html'
 url = 'http://new.comicvip.com/show/cool-105.html?ch=31'
 url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
@@ -35,12 +73,12 @@ class comicFetcher(object):
 		self.comic_code = re.search('/(\w+)\.html',url).groups()[0]
 		overview = urllib2.urlopen(url).read().decode('big5').encode('utf-8')
 		allbooks = re.findall('%s-(\d+)\.html.*?>([^<]+)'%self.comic_code,overview,re.S)
-		self.allbooks = [(int(x[0]),x[1].strip()) if x[1].strip() else (x[0],'New') for x in allbooks]
+		self.allbooks = [(int(x[0]),x[1].strip()) if x[1].strip() else (int(x[0]),'New') for x in allbooks]
 		readpage = self.readpage_format%self.comic_code
 		source = urllib2.urlopen(readpage).read().decode('big5').encode('utf-8')
 		self.chs,self.cs = re.search("<script>var chs=(\d+);.*?cs='([^']+)'",source).groups()
-		# for book in allbooks:
-
+		for i in range(len(self.allbooks)):
+			self.allbooks[i] += (int(self.getpages(self.allbooks[i][0])),)
 	def overview(self):
 		return self.allbooks
 	def getpages(self,ch):
@@ -74,4 +112,5 @@ class comicFetcher(object):
 a = comicFetcher(url)
 print a.getimgcode(3,21)
 print a.getpages(3)
-# print a.overview()
+for x in a.overview():
+	print x[1],x[2]
