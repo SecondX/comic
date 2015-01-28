@@ -3,6 +3,9 @@ from Tkinter import *
 from PIL import Image, ImageTk
 import re
 import cStringIO
+import time
+import tempfile
+import os
 class comicFetcher(object):
 	homepage_format = 'http://www.8comic.com/%s.html'
 	readpage_format = 'http://new.comicvip.com/show/cool-%s.html'#?ch=%s'
@@ -54,20 +57,26 @@ class comicFetcher(object):
 		return n
 class comicReader(object):
 	def display(self,e,data):
+		
 		newframe = Toplevel()
-		newframe.title("display a website image")
-		newframe.geometry('1024x768')
+		newframe.title(data[1])
+		newframe.geometry('600x800')
+		newframe.minsize(300,480)
 		pagescount = Label(newframe, text='%s / %s'%(1,data[2]))
 
 		imgpath = self.fetcher.getimgurl(data[0],1)
 		imagedata = cStringIO.StringIO(urllib2.urlopen(imgpath).read())
 		image = Image.open(imagedata)
+		self.originalimg = image
+		image = image.resize((600,780),Image.ANTIALIAS)
 		photo = ImageTk.PhotoImage(image)
-		theimg = Label(newframe,image=photo)
+		theimg = Label(newframe,image=photo,height=780,width=600)
+		theimg.image = photo
 		theimg.pack()
 
 		newframe.config(bg='black')
 		newframe.bind('<Key>',lambda e,pagelabel=pagescount,imglabel=theimg,ch=data[0]:self.pagectrl(e,pagelabel,imglabel,ch))
+		# newframe.bind('<Configure>',lambda e,imglabel=theimg:self.resize(e,imglabel))
 		pagescount.pack()
 		newframe.focus()
 		newframe.mainloop()
@@ -75,6 +84,12 @@ class comicReader(object):
 	def key(self,e):
 		if e.keycode == 27:
 			exit()
+	def resize(self,e,theimg):
+		image = self.originalimg.resize((e.width,e.height-20),Image.ANTIALIAS)
+		photo = ImageTk.PhotoImage(image)
+		theimg.Config(image=photo)
+		theimg.image = photo
+
 	def pagectrl(self,e,pagelabel,imglabel,ch):
 		now,bound = map(int,re.search('(\d+) / (\d+)',pagelabel.cget('text')).groups())
 		changed = False
@@ -105,8 +120,14 @@ class comicReader(object):
 		if changed:
 			imgpath = self.fetcher.getimgurl(ch,now)
 			print imgpath
-			imagedata = cStringIO.StringIO(urllib2.urlopen(imgpath).read())
-			image = Image.open(imagedata)
+			pt = time.time()
+			raw_data = urllib2.urlopen(imgpath).read()
+			self.imagedata = cStringIO.StringIO(raw_data)
+			print 'download cost :',time.time()-pt
+			print 'pic size:',len(raw_data)
+			image = Image.open(self.imagedata)
+			self.originalimg = image
+			image = image.resize((600,780),Image.ANTIALIAS)
 			photo = ImageTk.PhotoImage(image)
 			imglabel.config(image=photo)
 			imglabel.image = photo
@@ -137,6 +158,7 @@ url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
 
 
 url = 'http://www.8comic.com/7340.html'
+url = 'http://www.8comic.com/714.html'
 comicReader(url)
 # a = comicFetcher(url)
 # print a.overview()
