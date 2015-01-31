@@ -1,4 +1,4 @@
-import urllib2
+import urllib2,urllib
 from Tkinter import *
 from PIL import Image, ImageTk
 import re
@@ -6,7 +6,12 @@ import cStringIO
 import time
 import tempfile
 import os
+class ComicBook(object):
+	def __init__(self,comiccode='0',bookname='',author='',intro=''):
+		code = re.
+
 class comicFetcher(object):
+	hompage = 'http://www.8comic.com'
 	homepage_format = 'http://www.8comic.com/%s.html'
 	readpage_format = 'http://new.comicvip.com/show/cool-%s.html'#?ch=%s'
 	def __init__(self,url):
@@ -55,6 +60,21 @@ class comicFetcher(object):
 		elif n < 100:
 			return '0%d'%n
 		return n
+
+	def searchComic(self,big5title):
+		u = '/member/search.aspx?k=%s&button=%%B7j%%B4M'%big5title
+		header = {}
+		header['Accept-Language'] = 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4'
+		req = urllib2.Request(url+u,headers=header)
+		search_result = urllib2.urlopen(req).read().decode('big5').encode('utf-8')
+		comic_title,author,intro = '','',''
+		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
+			print x[0]
+			comic_title,author,intro = [z for z in map(lambda l:re.sub('<.*?>','',l)+' ',[y for y in x[1].splitlines()]) if z.strip()]
+			print comic_title
+			print author
+			print intro
+
 class comicReader(object):
 	def display(self,e,data):
 		
@@ -158,7 +178,7 @@ url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
 
 
 url = 'http://www.8comic.com/7340.html'
-url = 'http://www.8comic.com/714.html'
+# url = 'http://www.8comic.com/714.html'
 comicReader(url)
 # a = comicFetcher(url)
 # print a.overview()
