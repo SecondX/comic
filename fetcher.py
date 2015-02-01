@@ -7,14 +7,24 @@ import time
 import tempfile
 import os
 class ComicBook(object):
-	def __init__(self,comiccode='0',bookname='',author='',intro=''):
-		code = re.
+	host = 'http://www.8comic.com'
+	def __init__(self,intropage='0',bookname='',author='',intro=''):
+		code = re.search('(\d+)',intropage)
+		self.comic_code = code.groups()[0] if code else '0'
+		self.introurl = host + '/html/%s.html'%self.comic_code
+		self.previewurl = host + '/pics/0/%s.jpg'%self.comic_code
+		self.bookname = bookname
+		self.author = author
+		self.intro = intro
+
 
 class comicFetcher(object):
 	hompage = 'http://www.8comic.com'
 	homepage_format = 'http://www.8comic.com/%s.html'
 	readpage_format = 'http://new.comicvip.com/show/cool-%s.html'#?ch=%s'
-	def __init__(self,url):
+	
+		
+	def getallbooks(self,url):
 		self.comic_code = re.search('/(\w+)\.html',url).groups()[0]
 		overview = urllib2.urlopen(url).read().decode('big5').encode('utf-8')
 		allbooks = re.findall('%s-(\d+)\.html.*?>([^<]+)'%self.comic_code,overview,re.S)
@@ -24,6 +34,7 @@ class comicFetcher(object):
 		self.chs,self.cs = re.search("<script>var chs=(\d+);.*?cs='([^']+)'",source).groups()
 		for i in range(len(self.allbooks)):
 			self.allbooks[i] += (int(self.getpages(self.allbooks[i][0])),)
+		return self.allbooks
 	def overview(self):
 		return self.allbooks
 	def getpages(self,ch):
@@ -69,11 +80,9 @@ class comicFetcher(object):
 		search_result = urllib2.urlopen(req).read().decode('big5').encode('utf-8')
 		comic_title,author,intro = '','',''
 		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
-			print x[0]
+			code = x[0]
 			comic_title,author,intro = [z for z in map(lambda l:re.sub('<.*?>','',l)+' ',[y for y in x[1].splitlines()]) if z.strip()]
-			print comic_title
-			print author
-			print intro
+			yield ComicBook(code,comic_title,author,intro)
 
 class comicReader(object):
 	def display(self,e,data):
@@ -179,9 +188,9 @@ url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
 
 url = 'http://www.8comic.com/7340.html'
 # url = 'http://www.8comic.com/714.html'
-comicReader(url)
-# a = comicFetcher(url)
-# print a.overview()
+# comicReader(url)
+a = comicFetcher(url)
+print a.overview()
 # # print a.getimgcode(3,21)
 # # print a.getpages(3)
 # for x in a.overview():
