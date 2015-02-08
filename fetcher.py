@@ -1,5 +1,7 @@
+#encoding=utf-8
 import urllib2,urllib
 from Tkinter import *
+
 from PIL import Image, ImageTk
 import re
 import cStringIO
@@ -11,8 +13,8 @@ class ComicBook(object):
 	def __init__(self,intropage='0',bookname='',author='',intro=''):
 		code = re.search('(\d+)',intropage)
 		self.comic_code = code.groups()[0] if code else '0'
-		self.introurl = host + '/html/%s.html'%self.comic_code
-		self.previewurl = host + '/pics/0/%s.jpg'%self.comic_code
+		self.introurl = self.host + '/html/%s.html'%self.comic_code
+		self.previewurl = self.host + '/pics/0/%s.jpg'%self.comic_code
 		self.bookname = bookname
 		self.author = author
 		self.intro = intro
@@ -20,22 +22,24 @@ class ComicBook(object):
 
 class comicFetcher(object):
 	hompage = 'http://www.8comic.com'
-	homepage_format = 'http://www.8comic.com/%s.html'
-	readpage_format = 'http://new.comicvip.com/show/cool-%s.html'#?ch=%s'
-	
-		
+	readpage_format = 'http://new.comicvip.com/show/%s%s.html'#?ch=%s'
+	short_class = 'cool-'
+	long_class = 'best-manga-'
+	short_description = map(str,[4,6,12,22,1,17,19,21,2,5,7,9])
+	long_description = map(str,[10,11,13,14,3,8,15,16,18,20])
+
 	def getallbooks(self,url):
 		self.comic_code = re.search('/(\w+)\.html',url).groups()[0]
 		overview = urllib2.urlopen(url).read().decode('big5').encode('utf-8')
-		allbooks = re.findall('%s-(\d+)\.html.*?>([^<]+)'%self.comic_code,overview,re.S)
-		self.allbooks = [(int(x[0]),x[1].strip()) if x[1].strip() else (int(x[0]),'New') for x in allbooks]
-		readpage = self.readpage_format%self.comic_code
+		allbooks = re.findall("%s-(\d+)\.html',(\d+).*?>([^<]+)"%self.comic_code,overview,re.S)
+		self.allbooks = [(int(x[0]),x[2].strip().decode('utf-8'),x[1]) if x[2].strip() else (int(x[0]),'New') for x in allbooks]
+
+		readpage = self.readpage_format%(self.long_class if self.allbooks[0][2] in self.long_description else self.short_class,self.comic_code)
+		print 'readurl :',readpage
 		source = urllib2.urlopen(readpage).read().decode('big5').encode('utf-8')
 		self.chs,self.cs = re.search("<script>var chs=(\d+);.*?cs='([^']+)'",source).groups()
 		for i in range(len(self.allbooks)):
 			self.allbooks[i] += (int(self.getpages(self.allbooks[i][0])),)
-		return self.allbooks
-	def overview(self):
 		return self.allbooks
 	def getpages(self,ch):
 		c = self.getc(ch)
@@ -76,12 +80,14 @@ class comicFetcher(object):
 		u = '/member/search.aspx?k=%s&button=%%B7j%%B4M'%big5title
 		header = {}
 		header['Accept-Language'] = 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4'
-		req = urllib2.Request(url+u,headers=header)
+		req = urllib2.Request(self.hompage+u,headers=header)
 		search_result = urllib2.urlopen(req).read().decode('big5').encode('utf-8')
 		comic_title,author,intro = '','',''
 		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
 			code = x[0]
-			comic_title,author,intro = [z for z in map(lambda l:re.sub('<.*?>','',l)+' ',[y for y in x[1].splitlines()]) if z.strip()]
+			a = [z for z in map(lambda l:re.sub('<.*?>','',l)+' ',[y for y in x[1].splitlines()])]
+			comic_title,author,intro=a[0],a[1],a[3]
+			# comic_title,author,intro=a if len(a)>2 else a[0],a[1],''
 			yield ComicBook(code,comic_title,author,intro)
 
 class comicReader(object):
@@ -189,9 +195,139 @@ url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
 url = 'http://www.8comic.com/7340.html'
 # url = 'http://www.8comic.com/714.html'
 # comicReader(url)
-a = comicFetcher(url)
-print a.overview()
-# # print a.getimgcode(3,21)
-# # print a.getpages(3)
-# for x in a.overview():
-# 	print x[1],x[2]
+a = comicFetcher()
+
+# wanted = '草莓'.decode('utf-8').encode('big5')
+
+# result = a.searchComic(wanted)
+# for book in result:
+# 	print book.bookname,'(%s)'%book.comic_code
+# 	print book.author
+# 	print book.intro
+# 	print book.introurl
+# 	print book.previewurl
+# 	print '=============================='
+import urllib
+import threading
+
+import ttk
+
+
+class comicDownload(object):
+
+	def __init__(self):
+		self.fetcher = comicFetcher()
+		self.photopools=[]
+		self.book_buttons = []
+		self.root = Tk()
+		self.top_frame = ttk.Frame(self.root,relief=SUNKEN,height=100)
+		self.top_frame.grid(row=0,column=0,rowspan=4,columnspan=4)
+		self.top_frame.pack(fill=X)
+		Label(self.top_frame,text='Search:').pack(side=LEFT)
+		self.inpt = Entry(self.top_frame,width=29)
+		self.inpt.pack(side=LEFT,fill=X)
+		self.btn = Button(self.top_frame,text='Search',command=lambda:self.create_button(self.inpt))
+		self.btn.pack(side=LEFT,anchor=W)
+
+
+		self.canvas = Canvas(self.root,bg='black')
+		self.canvas.config(scrollregion=self.canvas.bbox("all"))
+		self.vbar=Scrollbar(self.canvas,orient=VERTICAL)
+		self.vbar.pack(side=RIGHT,fill=Y)
+		self.vbar.config(command=self.canvas.yview)
+
+		self.root.bind('<MouseWheel>',lambda e:self.ms(e,self.canvas))
+
+		self.frame = Frame(self.canvas)
+		self.canvas.pack(side=TOP,expand=True,fill=BOTH)
+		self.root.grid_rowconfigure(0, weight=1)
+		self.root.grid_columnconfigure(0, weight=1)
+
+		self.book_frame = Frame(self.canvas,bg='black')
+		self.book_frame.rowconfigure(1, weight=1)
+		self.book_frame.columnconfigure(1, weight=1)
+
+
+		self.canvas.create_window(0, 0, anchor=NW, window=self.book_frame)
+
+		self.frame.update_idletasks()
+
+
+		self.root.minsize(300,600)
+		self.root.maxsize(300,600)
+		self.root.mainloop()
+	# def perform_download(label_ch,progressbar_ch,label_page,progressbar_page):
+	# 	pass
+	def perform_download(self,book):
+		allbooks = self.fetcher.getallbooks(book.introurl)
+		print allbooks
+		self.label_ch.config(text='%s(%d / %d)'%(allbooks[0][1],1,len(allbooks)))
+		self.label_page.config(text='%d / %d'%(1,allbooks[0][3]))
+		if not os.path.exists(self.comicfolder):
+			os.mkdir(self.comicfolder)
+			print self.comicfolder.encode('utf-8'),'comic folder'
+			exit()
+		for book in allbooks:
+			path = os.path.join(self.comicfolder,book[1]) + ' '
+			print path
+			if not os.path.exists(path):
+				os.mkdir(path)
+			for page in range(1,book[3]+1):
+				print self.fetcher.getimgurl(book[0],page)
+				pass
+			print
+	def progress(self,book=None):
+		tl = Toplevel()
+		tl.title('donwloading')
+		# tl.geometry('300x100')
+		
+		tl.rowconfigure(5,weight=2)
+		tl.columnconfigure(5,weight=2)
+		self.comicfolder = os.path.join(os.getcwd(),book.bookname).decode('utf-8')
+		Label(tl,text=self.comicfolder).grid(row=0,column=0)
+		progress_frame = Frame(tl)
+		progress_frame.grid(row=1,column=0,sticky=W+N)
+		self.progressbar_ch = ttk.Progressbar(progress_frame,orient=HORIZONTAL, length=200, mode='determinate')
+		self.progressbar_ch.grid(row=0,column=0,pady=10,sticky=W)
+		self.label_ch = Label(progress_frame,text= '')
+		self.label_ch.grid(row=0,column=1,sticky=W,padx=10)
+
+		self.progressbar_page = ttk.Progressbar(progress_frame,orient=HORIZONTAL, length=200, mode='determinate')
+		self.progressbar_page.grid(row=3,column=0,pady=10,sticky=W)
+		self.label_page = Label(progress_frame,text='')
+		self.label_page.grid(row=3,column=1,sticky=W,padx=10)
+		
+
+		self.stopDownload = False
+		
+		threading.Thread(target=self.perform_download,args=([book])).start()
+		tl.protocol("WM_DELETE_WINDOW", lambda :self.cancel_download(tl))
+		tl.mainloop()
+
+	def cancel_download(self,parent):
+		self.stopDownload = True
+		parent.destroy()
+	def create_button(self,inpt_widget):
+		# Button(book_frame,text='kerker').pack()
+		self.frame.update_idletasks()
+		a = inpt_widget.get()
+		search_name = urllib.quote(a.encode('big5'))
+		books = self.fetcher.searchComic(search_name)
+		index = 0
+		for book in books:
+			print book.comic_code,book.bookname,book.author,book.intro
+			print book.previewurl,book.introurl
+			print 
+			imagedata = cStringIO.StringIO(urllib2.urlopen(book.previewurl).read())
+			image = Image.open(imagedata)
+			photo = ImageTk.PhotoImage(image)
+			self.photopools.append(photo)
+			show_book = Button(self.book_frame,image=photo,command=lambda :self.progress(book))
+			show_book.grid(ipadx=3,ipady=3,padx=8,pady=8)
+			self.book_buttons.append(show_book)
+			index+=2
+	def ms(self,e,widget=None):
+		widget.yview('scroll',-1 if e.delta>0 else 1,'units')
+
+
+comicDownload()
