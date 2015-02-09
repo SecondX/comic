@@ -11,13 +11,15 @@ import threading
 import ttk
 class ComicBook(object):
 	host = 'http://www.8comic.com'
-	def __init__(self,intropage='0',bookname='',author='',intro=''):
+	def __init__(self,intropage='0',bookname='',roles='',intro=''):
 		code = re.search('(\d+)',intropage)
 		self.comic_code = code.groups()[0] if code else '0'
 		self.introurl = self.host + '/html/%s.html'%self.comic_code
 		self.previewurl = self.host + '/pics/0/%s.jpg'%self.comic_code
 		self.bookname = bookname
-		self.author = author
+		self.title = bookname.split('  ')[0]
+		self.subtitle = bookname.split('  ')[1].strip()
+		self.roles = roles
 		self.intro = intro
 
 
@@ -185,7 +187,33 @@ class comicReader(object):
 			l.bind('<Leave>',lambda e,d=l:d.config(bg='black'))
 		self.root.mainloop()
 
+class CreateToolTip(object):
+    '''
+    create a tooltip for a given widget
+    '''
+    def __init__(self, widget, text='widget info'):
+        self.widget = widget
+        self.text = text
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.close)
+    def enter(self, event=None):
+        x = y = 0
+        x, y, cx, cy = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+        # creates a toplevel window
+        self.tw = Toplevel(self.widget)
+        # Leaves only the label and removes the app window
+        self.tw.wm_overrideredirect(True)
+        self.tw.wm_geometry("+%d+%d" % (x, y))
+        label = Label(self.tw, text=self.text, justify='left',
+                       background='gray', relief='solid', borderwidth=1,
+                       font=("times", "18", "normal"))
+        label.pack(ipadx=1)
 
+    def close(self, event=None):
+        if self.tw:
+            self.tw.destroy()
 
 
 class comicDownload(object):
@@ -199,12 +227,12 @@ class comicDownload(object):
 		self.top_frame.grid(row=0,column=0,rowspan=4,columnspan=4)
 		self.top_frame.pack(fill=X)
 		Label(self.top_frame,text='Search:').pack(side=LEFT)
-		self.inpt = Entry(self.top_frame,width=29)
+		self.searchname = StringVar()
+		self.inpt = Entry(self.top_frame,width=29,textvariable=self.searchname)
 		self.inpt.pack(side=LEFT,fill=X)
-		self.inpt.bind('<Key>',self.SearchAndClear)
-		self.btn = Button(self.top_frame,text='Search',command=lambda:self.create_button(self.inpt))
+		self.btn = Button(self.top_frame,text='Search',command=self.create_search_thread)
 		self.btn.pack(side=LEFT,anchor=W)
-
+		
 
 		self.canvas = Canvas(self.root,bg='black')
 		self.canvas.config(scrollregion=self.canvas.bbox("all"))
@@ -213,7 +241,7 @@ class comicDownload(object):
 		self.vbar.config(command=self.canvas.yview)
 
 		self.root.bind('<MouseWheel>',lambda e:self.ms(e,self.canvas))
-
+		self.root.bind('<Key>',self.adjustyview)
 		# self.frame = Frame(self.canvas)
 		self.canvas.pack(side=TOP,expand=True,fill=BOTH)
 		self.root.grid_rowconfigure(0, weight=1)
@@ -226,12 +254,19 @@ class comicDownload(object):
 
 		# self.frame.update_idletasks()
 
-
+		self.inpt.focus()
+		self.inpt.bind('<Key>',self.inpt_key_event)
 		self.root.minsize(300,600)
 		self.root.maxsize(300,600)
 		self.root.mainloop()
+
 	# def perform_download(label_ch,progressbar_ch,label_page,progressbar_page):
 	# 	pass
+	def inpt_key_event(self,e):
+		if e.keysym == 'Return':
+			self.create_search_thread()
+			
+
 	def perform_download(self,book):
 		allbooks = self.fetcher.getallbooks(book.introurl)
 		print allbooks
@@ -297,7 +332,11 @@ class comicDownload(object):
 	def cancel_download(self,parent):
 		self.stopDownload = True
 		parent.destroy()
-	def create_button(self,inpt_widget):
+	def create_search_thread(self):
+		threading.Thread(target=self.create_button).start()
+
+	def create_button(self):
+
 		# Button(book_frame,text='kerker').pack()
 
 		# self.frame.update_idletasks()
@@ -307,24 +346,37 @@ class comicDownload(object):
 		self.book_frame.columnconfigure(1, weight=1)
 		self.canvas.create_window(0, 0, anchor=NW, window=self.book_frame)
 
-		a = self.inpt.get()
+		# a = self.inpt.get()
+		a = self.searchname.get()
+		self.searchname.set('')
 		search_name = urllib.quote(a.encode('big5'))
 		books = self.fetcher.searchComic(search_name)
 		
 		for book in books:
-			print book.comic_code,book.bookname,book.author,book.intro
+			print book.comic_code,book.title,book.roles,book.intro
 			print book.previewurl,book.introurl
-			print 
+			tooltip_text = '''名稱：%s %s
+人物：%s
+內容簡介：%s'''%(book.title,book.subtitle,book.roles,book.intro)
 			imagedata = cStringIO.StringIO(urllib2.urlopen(book.previewurl).read())
 			image = Image.open(imagedata)
 			photo = ImageTk.PhotoImage(image)
 			self.bookstore.append((book,photo))
 			show_book = Button(self.book_frame,image=photo,command=lambda ch=book:self.progress(ch))
 			show_book.grid(ipadx=3,ipady=3,padx=8,pady=8)
+			CreateToolTip(show_book,tooltip_text)
 			self.book_buttons.append(show_book)
 
 	def ms(self,e,widget=None):
 		widget.yview('scroll',-1 if e.delta>0 else 1,'units')
-	def SearchAndClear(self,e):
-		pass
+	def adjustyview(self,e):
+		if e.keysym == 'Down':
+			self.canvas.yview('scroll',1,'units')
+		elif e.keysym =='Up':
+			self.canvas.yview('scroll',-1,'units')
+		elif e.keysym == 'Next':
+			self.canvas.yview('scroll',6,'units')
+		elif e.keysym == 'Prior':
+			self.canvas.yview('scroll',-6,'units')
+		print e.keysym
 comicDownload()
