@@ -82,7 +82,7 @@ class comicFetcher(object):
 		header = {}
 		header['Accept-Language'] = 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4'
 		req = urllib2.Request(self.hompage+u,headers=header)
-		search_result = urllib2.urlopen(req).read().decode('big5').encode('utf-8')
+		search_result = urllib2.urlopen(req).read().decode('big5','ignore').encode('utf-8')
 		comic_title,author,intro = '','',''
 		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
 			code = x[0]
@@ -192,7 +192,7 @@ class comicDownload(object):
 
 	def __init__(self):
 		self.fetcher = comicFetcher()
-		self.photopools=[]
+		self.bookstore=[]
 		self.book_buttons = []
 		self.root = Tk()
 		self.top_frame = ttk.Frame(self.root,relief=SUNKEN,height=100)
@@ -201,6 +201,7 @@ class comicDownload(object):
 		Label(self.top_frame,text='Search:').pack(side=LEFT)
 		self.inpt = Entry(self.top_frame,width=29)
 		self.inpt.pack(side=LEFT,fill=X)
+		self.inpt.bind('<Key>',self.SearchAndClear)
 		self.btn = Button(self.top_frame,text='Search',command=lambda:self.create_button(self.inpt))
 		self.btn.pack(side=LEFT,anchor=W)
 
@@ -213,7 +214,7 @@ class comicDownload(object):
 
 		self.root.bind('<MouseWheel>',lambda e:self.ms(e,self.canvas))
 
-		self.frame = Frame(self.canvas)
+		# self.frame = Frame(self.canvas)
 		self.canvas.pack(side=TOP,expand=True,fill=BOTH)
 		self.root.grid_rowconfigure(0, weight=1)
 		self.root.grid_columnconfigure(0, weight=1)
@@ -221,11 +222,9 @@ class comicDownload(object):
 		self.book_frame = Frame(self.canvas,bg='black')
 		self.book_frame.rowconfigure(1, weight=1)
 		self.book_frame.columnconfigure(1, weight=1)
-
-
 		self.canvas.create_window(0, 0, anchor=NW, window=self.book_frame)
 
-		self.frame.update_idletasks()
+		# self.frame.update_idletasks()
 
 
 		self.root.minsize(300,600)
@@ -242,40 +241,39 @@ class comicDownload(object):
 		self.progressbar_ch['maximum'] = len(allbooks)
 		if not os.path.exists(self.comicfolder):
 			os.mkdir(self.comicfolder)
-			print self.comicfolder.encode('utf-8'),'comic folder'
+			
 		nowch=1
-		for book in allbooks:
-			if allbooks[-1] == book:
+		for ch in allbooks:
+			if allbooks[-1] == ch:
 				self.progressbar_ch.step(0.999)
 			else:
 				self.progressbar_ch.step()
-			self.label_ch.config(text='%s(%d / %d)'%(book[1],nowch,len(allbooks)))
-			self.progressbar_page['maximum'] = book[-1]
-			print self.comicfolder.encode('utf-8'),book[1].encode('utf-8')
-			path = os.path.join(self.comicfolder,book[1])
+			self.label_ch.config(text='%s(%d / %d)'%(ch[1],nowch,len(allbooks)))
+			self.progressbar_page['maximum'] = ch[-1]
+			
+			path = os.path.join(self.comicfolder,ch[1])
 			if not os.path.exists(path):
 				os.mkdir(path)
 			self.progressbar_page['value'] = 0
-			for page in range(1,book[-1]+1):
-				# print self.fetcher.getimgurl(book[0],page)
-				if book[-1] == page:
+			for page in range(1,ch[-1]+1):
+				# print self.fetcher.getimgurl(ch[0],page)
+				if ch[-1] == page:
 					self.progressbar_page.step(0.999)
 				else:
 					self.progressbar_page.step()
-				self.label_page.config(text='%d / %d'%(page,book[-1]))
+				self.label_page.config(text='%d / %d'%(page,ch[-1]))
 				time.sleep(0.1)
 				pass
-			self.progressbar_page['value'] = book[-1] - 0.001
+			self.progressbar_page['value'] = ch[-1] - 0.001
 			nowch+=1
 			
 	def progress(self,book=None):
 		tl = Toplevel()
 		tl.title('donwloading')
 		# tl.geometry('300x100')
-		
 		tl.rowconfigure(5,weight=2)
 		tl.columnconfigure(5,weight=2)
-		self.comicfolder = os.path.join(os.getcwd(),book.bookname).strip().decode('utf-8')
+		self.comicfolder = os.path.join(os.getcwd(),book.bookname).strip().decode('utf-8').split('  ')[0]
 		Label(tl,text=self.comicfolder).grid(row=0,column=0)
 		progress_frame = Frame(tl)
 		progress_frame.grid(row=1,column=0,sticky=W+N)
@@ -301,11 +299,18 @@ class comicDownload(object):
 		parent.destroy()
 	def create_button(self,inpt_widget):
 		# Button(book_frame,text='kerker').pack()
-		self.frame.update_idletasks()
-		a = inpt_widget.get()
+
+		# self.frame.update_idletasks()
+		self.book_frame.destroy()
+		self.book_frame = Frame(self.canvas,bg='black')
+		self.book_frame.rowconfigure(1, weight=1)
+		self.book_frame.columnconfigure(1, weight=1)
+		self.canvas.create_window(0, 0, anchor=NW, window=self.book_frame)
+
+		a = self.inpt.get()
 		search_name = urllib.quote(a.encode('big5'))
 		books = self.fetcher.searchComic(search_name)
-		index = 0
+		
 		for book in books:
 			print book.comic_code,book.bookname,book.author,book.intro
 			print book.previewurl,book.introurl
@@ -313,13 +318,13 @@ class comicDownload(object):
 			imagedata = cStringIO.StringIO(urllib2.urlopen(book.previewurl).read())
 			image = Image.open(imagedata)
 			photo = ImageTk.PhotoImage(image)
-			self.photopools.append(photo)
-			show_book = Button(self.book_frame,image=photo,command=lambda :self.progress(book))
+			self.bookstore.append((book,photo))
+			show_book = Button(self.book_frame,image=photo,command=lambda ch=book:self.progress(ch))
 			show_book.grid(ipadx=3,ipady=3,padx=8,pady=8)
 			self.book_buttons.append(show_book)
-			index+=2
+
 	def ms(self,e,widget=None):
 		widget.yview('scroll',-1 if e.delta>0 else 1,'units')
-
-
+	def SearchAndClear(self,e):
+		pass
 comicDownload()
