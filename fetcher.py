@@ -55,7 +55,7 @@ class comicFetcher(object):
 class comicReader(object):
 	def display(self,e,data):
 		newframe = Toplevel()
-		newframe.title("display a website image")
+		newframe.title(data[1])
 		newframe.geometry('1024x768')
 		pagescount = Label(newframe, text='%s / %s'%(1,data[2]))
 
