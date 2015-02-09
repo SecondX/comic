@@ -6,8 +6,9 @@ from PIL import Image, ImageTk
 import re
 import cStringIO
 import time
-import tempfile
 import os
+import threading
+import ttk
 class ComicBook(object):
 	host = 'http://www.8comic.com'
 	def __init__(self,intropage='0',bookname='',author='',intro=''):
@@ -187,32 +188,6 @@ class comicReader(object):
 
 
 
-url = 'http://www.8comic.com/105.html'
-url = 'http://new.comicvip.com/show/cool-105.html?ch=31'
-url = 'http://new.comicvip.com/show/cool-7340.html?ch=3'
-
-
-url = 'http://www.8comic.com/7340.html'
-# url = 'http://www.8comic.com/714.html'
-# comicReader(url)
-a = comicFetcher()
-
-# wanted = '草莓'.decode('utf-8').encode('big5')
-
-# result = a.searchComic(wanted)
-# for book in result:
-# 	print book.bookname,'(%s)'%book.comic_code
-# 	print book.author
-# 	print book.intro
-# 	print book.introurl
-# 	print book.previewurl
-# 	print '=============================='
-import urllib
-import threading
-
-import ttk
-
-
 class comicDownload(object):
 
 	def __init__(self):
@@ -270,19 +245,27 @@ class comicDownload(object):
 			print self.comicfolder.encode('utf-8'),'comic folder'
 		nowch=1
 		for book in allbooks:
+			if allbooks[-1] == book:
+				self.progressbar_ch.step(0.999)
+			else:
+				self.progressbar_ch.step()
+			self.label_ch.config(text='%s(%d / %d)'%(book[1],nowch,len(allbooks)))
 			self.progressbar_page['maximum'] = book[-1]
 			print self.comicfolder.encode('utf-8'),book[1].encode('utf-8')
 			path = os.path.join(self.comicfolder,book[1])
 			if not os.path.exists(path):
 				os.mkdir(path)
+			self.progressbar_page['value'] = 0
 			for page in range(1,book[-1]+1):
 				# print self.fetcher.getimgurl(book[0],page)
-				self.progressbar_page.step()
+				if book[-1] == page:
+					self.progressbar_page.step(0.999)
+				else:
+					self.progressbar_page.step()
 				self.label_page.config(text='%d / %d'%(page,book[-1]))
-				time.sleep(0.7)
+				time.sleep(0.1)
 				pass
-			self.progressbar_ch.step()
-			self.label_ch.config(text='%s(%d / %d)'%(book[1],nowch,len(allbooks)))
+			self.progressbar_page['value'] = book[-1] - 0.001
 			nowch+=1
 			
 	def progress(self,book=None):
