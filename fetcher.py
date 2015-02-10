@@ -16,11 +16,14 @@ class ComicBook(object):
 		self.comic_code = code.groups()[0] if code else '0'
 		self.introurl = self.host + '/html/%s.html'%self.comic_code
 		self.previewurl = self.host + '/pics/0/%s.jpg'%self.comic_code
-		self.bookname = bookname
+		self.bookname = self.__handle_htmlencoding(bookname)
 		self.title = bookname.split('  ')[0]
 		self.subtitle = bookname.split('  ')[1].strip()
-		self.roles = roles
-		self.intro = intro
+		self.roles = self.__handle_htmlencoding(roles)
+		self.intro = self.__handle_htmlencoding(intro)
+	def __handle_htmlencoding(self,text):
+		return re.sub('&#(\d+);',lambda e:unichr(int(e.group(1))).encode('utf-8'),text)
+
 
 
 class comicFetcher(object):
