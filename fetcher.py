@@ -28,7 +28,7 @@ class ComicBook(object):
 
 class comicFetcher(object):
 	hompage = 'http://www.8comic.com'
-	readpage_format = 'http://new.comicvip.com/show/%s%s.html'#?ch=%s'
+	readpage_format = 'http://www.comicvip.com/show/%s%s.html'#?ch=%s'
 	short_class = 'cool-'
 	long_class = 'best-manga-'
 	short_description = map(str,[4,6,12,22,1,17,19,21,2,5,7,9])
@@ -67,7 +67,7 @@ class comicFetcher(object):
 	def getimgurl(self,ch,page):
 		c = self.getc(ch)
 		page_code = self.ss(c,self.mm(page)+10,3,50)+'.jpg'
-		imgurl = 'http://img'+self.ss(c,4,2)+'.8comic.com/'+self.ss(c,6,1)+'/'+self.comic_code+'/'+self.ss(c,0,4)+'/'+self.nn(page)+'_'+self.ss(c,self.mm(page)+10,3,50)+'.jpg';
+		imgurl = 'http://img'+str(self.ss(c,4,2))+'.8comic.com/'+str(self.ss(c,6,1))+'/'+str(self.comic_code)+'/'+str(self.ss(c,0,4))+'/'+str(self.nn(page))+'_'+str(self.ss(c,self.mm(page)+10,3,50))+'.jpg';
 		return imgurl
 	def ss(self,a,b,c,d=None):
 		e = a[b:b+c]
@@ -87,8 +87,15 @@ class comicFetcher(object):
 		# u = '/member/search.aspx?k=%s'%(re.sub(ur'(.)',lambda m:'%s%s%s%s'%('%26','%23',str(ord(m.group(0))),'%3B'),big5title,re.U))
 		header = {}
 		header['Accept-Language'] = 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4'
+		# header['Accept-Encoding'] = 'gzip, deflate, sdch'
+		# header['Upgrade-Insecure-Request'] = '1'
+		# header['Referer'] = 'http://www.comicvip.com/'
+		# header['Cookie'] = 'RI=0'
+		header['Host'] = 'www.comicvip.com'
+		# header['User-Agent'] = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.80 Safari/537.36'
 		req = urllib2.Request(self.hompage+u,headers=header)
 		search_result = urllib2.urlopen(req).read().decode('big5','ignore').encode('utf-8')
+		
 		comic_title,author,intro = '','',''
 		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
 			code = x[0]
@@ -229,6 +236,7 @@ class comicDownload(object):
 		self.book_buttons = []
 		self.root = Tk()
 		self.root.wm_title("小孟愛看漫畫書")
+		self.root.configure(background='green')
 		self.top_frame = ttk.Frame(self.root,relief=SUNKEN,height=100)
 		self.top_frame.grid(row=0,column=0,rowspan=4,columnspan=4)
 		self.top_frame.pack(fill=X)
@@ -240,8 +248,10 @@ class comicDownload(object):
 		self.btn.pack(side=LEFT,anchor=W,expand=True)
 		
 
-		self.canvas = Canvas(self.root,bg='black')
-		# self.canvas.config(scrollregion=self.canvas.bbox("all"))
+		self.canvas = Canvas(self.root,bg='black',width=800, height=700)
+		self.canvas.pack(side=LEFT,fill=BOTH,expand=True)
+		self.canvas.config(scrollregion=self.canvas.bbox("all"))
+
 		self.vbar=Scrollbar(self.canvas,orient=VERTICAL)
 		self.vbar.pack(side=RIGHT,fill=Y)
 		self.vbar.config(command=self.canvas.yview)
@@ -249,7 +259,8 @@ class comicDownload(object):
 		self.root.bind('<MouseWheel>',lambda e:self.ms(e,self.canvas))
 		self.root.bind('<Key>',self.adjustyview)
 		# self.frame = Frame(self.canvas)
-		self.canvas.pack(side=LEFT,expand=True,fill=BOTH)
+		
+
 		self.root.grid_rowconfigure(0, weight=1)
 		self.root.grid_columnconfigure(0, weight=1)
 
@@ -284,39 +295,56 @@ class comicDownload(object):
 		if not os.path.exists(self.comicfolder):
 			os.mkdir(self.comicfolder)
 			
-		nowch=1
+		nowch=0
 		self.progressbar_page.start()
 		for ch in allbooks:
+			nowch+=1
 			if allbooks[-1] == ch:
 				self.progressbar_ch.step(0.999)
 			else:
 				self.progressbar_ch.step()
 			self.label_ch.config(text='%s(%d / %d)'%(ch[1],nowch,len(allbooks)))
+			self.label_page.config(text='%d / %d'%(1,ch[-1]))
 			# self.progressbar_page['maximum'] = ch[-1]
 			
 			path = os.path.join(self.comicfolder,ch[1])
-			if not os.path.exists(path):
-				os.mkdir(path)
+			# if not os.path.exists(path):
+			# 	os.mkdir(path)
 			
 			# self.progressbar_page['value'] = 0
+			ch_html = open(path+'.html', 'w')
+			ch_html.write('<html><body bgcolor="black">')
 			for page in range(1,ch[-1]+1):
 				imgurl = self.fetcher.getimgurl(ch[0],page)
+				ch_html.write('<img src="%s"></br>'%imgurl)
+				time.sleep(0.0125)
 				filename = os.path.basename(imgurl)
-				with open(os.path.join(path,filename),'wb') as f:
-					f.write(urllib2.urlopen(imgurl).read())
+				print imgurl
+				savepath = os.path.join(path,filename)
+				if os.path.exists(savepath):
+					if os.path.getsize(savepath) > 0:
+						self.label_page.config(text='%d / %d'%(page,ch[-1]))
+						time.sleep(0.01)
+						continue
+				# with open(os.path.join(path,filename),'wb') as f:
+				# 	try:
+				# 		# f.write(urllib2.urlopen(imgurl,timeout=15).read())
+				# 		pass
+				# 	except:
+				# 		pass
 				# if ch[-1] == page:
 				# 	self.progressbar_page.step(0.999)
 				# else:
 				# 	self.progressbar_page.step()
 				self.label_page.config(text='%d / %d'%(page,ch[-1]))
-				time.sleep(0.1)
-				pass
+			ch_html.write('</body></html>')
 			# self.progressbar_page['value'] = ch[-1] - 0.001
-			nowch+=1
+			
 		self.progressbar_page.stop()
+		self.label_page.config(text='下載完畢')
 	def progress(self,book=None):
 		tl = Toplevel()
-		tl.title('donwloading')
+		tl.title('下載中')
 		# tl.geometry('300x100')
 		tl.rowconfigure(5,weight=2)
 		tl.columnconfigure(5,weight=2)
@@ -349,16 +377,17 @@ class comicDownload(object):
 			threading.Thread(target=self.create_button).start()
 
 	def create_button(self):
-		self.lock.acquire()
 		self.btn.config(state='disabled',text='處理中')
-		if self.book_frame:
-			self.book_frame.destroy()
+		try:
+			if self.book_frame and self.book_frame.winfo_children():
+				self.book_frame.destroy()
+		except Exception as e:
+			print e
+		time.sleep(0.1)
 		self.book_frame = Frame(self.canvas,bg='black')
 		self.book_frame.rowconfigure(1, weight=1)
 		self.book_frame.columnconfigure(1, weight=1)
 		self.canvas.create_window(0, 0, anchor=NW, window=self.book_frame)
-		# self.canvas.update_idletasks()
-		# a = self.inpt.get()
 		a = self.searchname.get()
 		self.searchname.set('')
 		tmp = []
@@ -380,16 +409,19 @@ class comicDownload(object):
 			image = Image.open(imagedata)
 			photo = ImageTk.PhotoImage(image)
 			self.bookstore.append((book,photo))
+			self.lock.acquire()
 			show_book = Button(self.book_frame,image=photo,command=lambda ch=book:self.progress(ch))
 			show_book.grid(ipadx=3,ipady=3,padx=8,pady=8)
 			CreateToolTip(show_book,tooltip_text)
 			self.book_buttons.append(show_book)
-		self.lock.release()
+			self.lock.release()
 		self.btn.config(state='normal',text = ' 搜  尋 ')
 	def ms(self,e,widget=None):
-		print widget.yview
 		widget.yview('scroll',-1 if e.delta>0 else 1,'units')
+		
 	def adjustyview(self,e):
+		if self.lock.locked():
+			return
 		if e.keysym == 'Down':
 			self.canvas.yview('scroll',1,'units')
 		elif e.keysym =='Up':
@@ -398,5 +430,5 @@ class comicDownload(object):
 			self.canvas.yview('scroll',6,'units')
 		elif e.keysym == 'Prior':
 			self.canvas.yview('scroll',-6,'units')
-		print e.keysym
+		
 comicDownload()
