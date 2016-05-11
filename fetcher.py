@@ -10,7 +10,7 @@ import os
 import threading
 import ttk
 class ComicBook(object):
-	host = 'http://www.8comic.com'
+	host = 'http://www.comicbus.com'
 	def __init__(self,intropage='0',bookname='',roles='',intro=''):
 		code = re.search('(\d+)',intropage)
 		self.comic_code = code.groups()[0] if code else '0'
@@ -27,20 +27,31 @@ class ComicBook(object):
 
 
 class comicFetcher(object):
-	hompage = 'http://www.8comic.com'
-	readpage_format = 'http://www.comicvip.com/show/%s%s.html'#?ch=%s'
-	short_class = 'cool-'
-	long_class = 'best-manga-'
-	short_description = map(str,[4,6,12,22,1,17,19,21,2,5,7,9])
-	long_description = map(str,[10,11,13,14,3,8,15,16,18,20])
+	hompage = 'http://www.comicbus.com'
+	# old version====
+	# readpage_format = 'http://www.comicvip.com/show/%s%s.html'#?ch=%s'
+	# short_class = 'cool-'
+	# long_class = 'best-manga-'
+	readpage_format = 'http://v.comicbus.com/online/%s%s.html'#?ch=%s'
+	first_desc = 'Domain-'
+	second_desc = 'finance-'
+	third_desc = 'insurance-'
+	first_class = map(str, [4, 6, 12, 22])
+	second_class = map(str, [1, 17, 19, 21, 3, 8, 15, 16, 18, 20])
+	third_class = map(str, [2, 5, 7, 9, 10, 11, 13, 14])
+	# short_description = map(str,[4,6,12,22,1,17,19,21,2,5,7,9])
+	# long_description = map(str,[10,11,13,14,3,8,15,16,18,20])
 
 	def getallbooks(self,url):
 		self.comic_code = re.search('/(\w+)\.html',url).groups()[0]
 		overview = urllib2.urlopen(url).read().decode('big5').encode('utf-8')
 		allbooks = re.findall("%s-(\d+)\.html',(\d+).*?>([^<]+)"%self.comic_code,overview,re.S)
+		allbooks = re.findall("%s-(\d+)\.html',(\d+).*?>[\s]*([^<\s]+)|%s-(\d+)\.html',(\d+).*([^<]+)</font>"%(self.comic_code, self.comic_code),overview,re.S)
 		self.allbooks = [(int(x[0]),x[2].strip().decode('utf-8'),x[1]) if x[2].strip() else (int(x[0]),'New') for x in allbooks]
-
-		readpage = self.readpage_format%(self.long_class if self.allbooks[0][2] in self.long_description else self.short_class,self.comic_code)
+		if self.allbooks[0][2] in self.first_class:
+			readpage = self.readpage_format%(self.first_desc, self.comic_code)
+		else:
+			readpage = self.readpage_format%(self.second_desc if self.allbooks[0][2] in self.second_class else self.third_desc,self.comic_code)
 		print 'readurl :',readpage
 		source = urllib2.urlopen(readpage).read().decode('big5').encode('utf-8')
 		self.chs,self.cs = re.search("<script>var chs=(\d+);.*?cs='([^']+)'",source).groups()
@@ -67,7 +78,7 @@ class comicFetcher(object):
 	def getimgurl(self,ch,page):
 		c = self.getc(ch)
 		page_code = self.ss(c,self.mm(page)+10,3,50)+'.jpg'
-		imgurl = 'http://img'+str(self.ss(c,4,2))+'.8comic.com/'+str(self.ss(c,6,1))+'/'+str(self.comic_code)+'/'+str(self.ss(c,0,4))+'/'+str(self.nn(page))+'_'+str(self.ss(c,self.mm(page)+10,3,50))+'.jpg';
+		imgurl = 'http://img'+str(self.ss(c,4,2))+'.6comic.com:99/'+str(self.ss(c,6,1))+'/'+str(self.comic_code)+'/'+str(self.ss(c,0,4))+'/'+str(self.nn(page))+'_'+str(self.ss(c,self.mm(page)+10,3,50))+'.jpg';
 		return imgurl
 	def ss(self,a,b,c,d=None):
 		e = a[b:b+c]
@@ -91,11 +102,10 @@ class comicFetcher(object):
 		# header['Upgrade-Insecure-Request'] = '1'
 		# header['Referer'] = 'http://www.comicvip.com/'
 		# header['Cookie'] = 'RI=0'
-		header['Host'] = 'www.comicvip.com'
+		header['Host'] = 'www.comicbus.com'
 		# header['User-Agent'] = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.80 Safari/537.36'
 		req = urllib2.Request(self.hompage+u,headers=header)
 		search_result = urllib2.urlopen(req).read().decode('big5','ignore').encode('utf-8')
-		
 		comic_title,author,intro = '','',''
 		for x in re.findall("'(/html/\d+\.html)' >(.*?)</td>",search_result,re.S):
 			code = x[0]
@@ -316,7 +326,7 @@ class comicDownload(object):
 			ch_html.write('<html><body bgcolor="black">')
 			for page in range(1,ch[-1]+1):
 				imgurl = self.fetcher.getimgurl(ch[0],page)
-				ch_html.write('<img src="%s"></br>'%imgurl)
+				ch_html.write('<center><img src="%s"></center></br>'%imgurl)
 				time.sleep(0.0125)
 				filename = os.path.basename(imgurl)
 				print imgurl
